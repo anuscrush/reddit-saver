@@ -1,121 +1,68 @@
 'use client'
 
 import { useState } from 'react'
-import { saveThread } from '@/lib/db'
 
-interface RedditFormProps {
-  userId: string
-  onSaved: () => void
-}
-
-export default function RedditForm({ userId, onSaved }: RedditFormProps) {
+export default function RedditForm() {
   const [url, setUrl] = useState('')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [post, setPost] = useState<any>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (!url.trim()) {
-      setError('Please paste a Reddit URL')
-      return
-    }
-
-    // Basic Reddit URL validation
-    if (!url.includes('reddit.com')) {
-      setError('Invalid Reddit URL')
-      return
-    }
-
+    setError(null)
     setLoading(true)
-    setError('')
 
     try {
       const res = await fetch('/api/reddit', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: url.trim() })
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ url })
       })
 
       const data = await res.json()
 
-      if (data.error || !res.ok) {
-        setError(data.error || 'Failed to fetch thread')
-        return
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to fetch Reddit data')
       }
 
-      // Save to database
-      await saveThread(userId, url.trim(), {
-        title: data.post.title,
-        author: data.post.author,
-        score: data.post.score,
-        comments: data.comments
-      })
-
-      setUrl('')
-      onSaved() // Refresh list
-      
-    } catch (err) {
-      console.error('Error:', err)
-      setError('Something went wrong. Please try again.')
+      setPost(data)
+    } catch (err: any) {
+      setError(err.message)
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <form onSubmit={handleSubmit}>
-      <div style={{ marginBottom: '12px' }}>
-        <input
-          type="text"
-          placeholder="https://www.reddit.com/r/nextjs/comments/..."
-          value={url}
-          onChange={(e) => {
-            setUrl(e.target.value)
-            setError('') // Clear error on input
-          }}
-          disabled={loading}
-          style={{
-            width: '100%',
-            padding: '10px 12px',
-            fontSize: '14px',
-            border: error ? '1px solid #ef4444' : '1px solid #d1d5db',
-            borderRadius: '6px',
-            outline: 'none',
-          }}
-        />
-      </div>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <input
+        type="text"
+        placeholder="Paste Reddit post URL"
+        value={url}
+        onChange={(e) => setUrl(e.target.value)}
+        className="w-full p-2 border rounded text-black"
+      />
 
-      {error && (
-        <div style={{
-          padding: '8px 12px',
-          background: '#fef2f2',
-          color: '#dc2626',
-          fontSize: '14px',
-          borderRadius: '6px',
-          marginBottom: '12px',
-          border: '1px solid #fecaca'
-        }}>
-          {error}
-        </div>
-      )}
-
-      <button 
+      <button
         type="submit"
         disabled={loading}
-        style={{
-          padding: '10px 20px',
-          background: loading ? '#9ca3af' : '#3b82f6',
-          color: 'white',
-          border: 'none',
-          borderRadius: '6px',
-          cursor: loading ? 'not-allowed' : 'pointer',
-          fontSize: '14px',
-          fontWeight: 500
-        }}
+        className="px-4 py-2 bg-blue-600 text-white rounded"
       >
-        {loading ? 'Fetching & Saving...' : 'Fetch & Save Thread'}
+        {loading ? 'Loading...' : 'Fetch Post'}
       </button>
+
+      {error && <p className="text-red-500">{error}</p>}
+
+      {post && (
+        <div className="mt-4">
+          <h2 className="font-bold">{post.title}</h2>
+          <p>Author: {post.author}</p>
+          <p>Score: {post.score}</p>
+        </div>
+      )}
     </form>
   )
 }
