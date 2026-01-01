@@ -32,20 +32,28 @@ export async function POST(req: Request) {
     }
 
     const post = data[0].data.children[0].data
+    
+    // Extract comments, filtering out deleted/removed comments and getting first ~20
     const comments = data[1]?.data?.children
-      ?.filter((c: any) => c.data?.body)
-      .slice(0, 5)
+      ?.filter((c: any) => c.data?.body && !c.data.body.includes('[deleted]') && !c.data.body.includes('[removed]'))
+      .slice(0, 20)
       .map((c: any) => ({
-        author: c.data.author,
-        body: c.data.body,
-        score: c.data.score
-      }))
+        author: c.data.author || '[deleted]',
+        body: c.data.body || '',
+        score: c.data.score || 0
+      })) || []
+
+    // Extract post ID from URL
+    const postIdMatch = url.match(/\/comments\/([a-z0-9]+)/)
+    const postId = postIdMatch ? postIdMatch[1] : post.id
 
     return NextResponse.json({
       title: post.title,
       author: post.author,
       score: post.score,
-      comments
+      comments,
+      postId,
+      url
     })
   } catch (err) {
     return NextResponse.json(
